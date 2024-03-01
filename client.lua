@@ -66,6 +66,8 @@ local HorsebridlesUsing
 local HorseholsterUsing
 local HorseshoesUsing
 
+local huntingwagon = false
+local wagonNetID = 0
 
 function getcloseplayers()
 	local closestDistance = 5.0
@@ -1806,22 +1808,59 @@ function Initiatewagon(atCoords)
 
         local ped = PlayerPedId()
         local pCoords = GetEntityCoords(ped)
-
-        local modelHash = GetHashKey(wagonModel)
-
-        if not HasModelLoaded(modelHash) then
-            RequestModel(modelHash)
-            while not HasModelLoaded(modelHash) do
-                Citizen.Wait(10)
-            end
-        end
-
-        local spawnPosition
         local spawnPosition = GetOffsetFromEntityInWorldCoords(PlayerPedId(), 0.0, Config.spawnrangewagon, 0)
-        if spawnPosition == nil then
+
+        if wagonModel == 'huntercart01' then
+            if not spawnPosition then
+                initializing2 = false
+
+                return
+            end
+
+            TriggerServerEvent('bm-huntingwagon:server:SpawnWagon', spawnPosition)
+
+            Wait(3000)
+
+            local huntingwagonID = exports['bm-huntingwagon']:MyWagon()
+            local huntingwagonPed = exports['bm-huntingwagon']:MyWagonPed()
+
+            Wait(1000)
+
+            local hwPed = NetworkGetEntityFromNetworkId(huntingwagonID) or huntingwagonPed
+            entity2 = hwPed
+            wagonNetID = huntingwagonID
+            huntingwagon = true
+
+            SetPedNameDebug(entity2, wagonName)
+            SetPedPromptName(entity2, wagonName)
+
+            TriggerServerEvent("syn_stable:addnetwork2",wagonNetID,wagonid)
+
             initializing2 = false
+
             return
+        else
+            local modelHash = GetHashKey(wagonModel)
+
+            if not HasModelLoaded(modelHash) then
+                RequestModel(modelHash)
+
+                while not HasModelLoaded(modelHash) do
+                    Citizen.Wait(10)
+                end
+            end
+
+            if spawnPosition == nil then
+                initializing2 = false
+
+                return
+            end
+
+            entity2 = CreateVehicle(modelHash, spawnPosition.x, spawnPosition.y, spawnPosition.z, 0, true, false)
+
+            SetModelAsNoLongerNeeded(modelHash)
         end
+
         entity2 = CreateVehicle(modelHash, spawnPosition.x, spawnPosition.y, spawnPosition.z, 0, true, false)
         SetModelAsNoLongerNeeded(modelHash)
         local spawnable = vector3(0, 0, 0)
@@ -2556,9 +2595,20 @@ function fleeHorse(playerHorse)
     end
 end
 function fleewagon(Spawnplayerwagon)
-    Wait(5000)
-    DeleteEntity(Spawnplayerwagon)    
-    Wait(1000)
+    if huntingwagon then
+        TriggerEvent('bm-huntingwagon:client:RemoveWagon')
+
+        Wait(1000)
+
+        wagonNetID = 0
+        huntingwagon = false
+        initializing2 = false
+    else
+        Wait(5000)
+        DeleteEntity(Spawnplayerwagon)
+        Wait(1000)
+    end
+
     if Mywagon_entity ~= nil then
         DeleteEntity(Mywagon_entity)
         Mywagon_entity = nil
